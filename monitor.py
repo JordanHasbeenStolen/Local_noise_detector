@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-Room Audio Monitor — единый файл
-Запуск: python monitor.py
-Открывай: http://localhost:9000  или  http://<ip-мака>:9000
+Run: python monitor.py
+Open: http://localhost:9000  or  http://<device-ip>:9000
 """
 
 import time, math, threading
@@ -14,7 +13,7 @@ from flask_cors import CORS
 # ─── Настройки ────────────────────────────────────────────────────────────────
 SAMPLE_RATE      = 16_000
 CHUNK_SIZE       = 1_024
-DEFAULT_THRESHOLD = 500    # RMS. Меняется на лету через слайдер на странице
+DEFAULT_THRESHOLD = 500
 ALERT_HOLD_SECS  = 3.0
 PORT             = 9000
 
