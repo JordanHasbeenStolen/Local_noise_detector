@@ -10,26 +10,26 @@ import pyaudio
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 
-# ─── Настройки ────────────────────────────────────────────────────────────────
+# ─── Settings ────────────────────────────────────────────────────────────────
 SAMPLE_RATE      = 16_000
 CHUNK_SIZE       = 1_024
 DEFAULT_THRESHOLD = 500
 ALERT_HOLD_SECS  = 3.0
 PORT             = 9000
 
-# ─── Общее состояние (аудио-поток ↔ HTTP) ────────────────────────────────────
+# ─── Shared state (audio stream ↔ HTTP) ──────────────────────────────────────
 state = {"alert": False, "rms": 0.0, "db": -90.0, "last_trigger": 0.0}
 config = {"threshold": DEFAULT_THRESHOLD}
 lock   = threading.Lock()
 
-# ─── Аудио-поток ─────────────────────────────────────────────────────────────
+# ─── Audio thread ────────────────────────────────────────────────────────────
 def audio_thread():
     pa = pyaudio.PyAudio()
     info = pa.get_default_input_device_info()
     print(f"[mic]  {info['name']}")
     stream = pa.open(format=pyaudio.paInt16, channels=1, rate=SAMPLE_RATE,
                      input=True, frames_per_buffer=CHUNK_SIZE)
-    print(f"[mic]  Слушаю… порт={PORT}")
+    print(f"[mic]  Listening… port={PORT}")
     try:
         while True:
             raw     = stream.read(CHUNK_SIZE, exception_on_overflow=False)
@@ -49,9 +49,9 @@ def audio_thread():
     finally:
         stream.stop_stream(); stream.close(); pa.terminate()
 
-# ─── HTML (встроен в Python) ──────────────────────────────────────────────────
+# ─── HTML (embedded in Python) ───────────────────────────────────────────────
 HTML = r"""<!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -66,7 +66,7 @@ HTML = r"""<!DOCTYPE html>
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden}
 body{display:grid;grid-template-rows:auto 1fr auto;height:100vh}
 
-/* шапка */
+/* header */
 header{
   display:flex;align-items:center;justify-content:space-between;
   padding:.7rem 1.4rem;border-bottom:1px solid var(--border);
@@ -79,7 +79,7 @@ header{
 #conn-dot.ok{background:var(--green)}
 #conn-dot.err{background:var(--red)}
 
-/* центр */
+/* center */
 main{
   display:flex;flex-direction:column;align-items:center;
   justify-content:center;gap:1.2rem;overflow:hidden;padding:.5rem
@@ -108,7 +108,7 @@ main{
 }
 #db-display span{font-size:.4em;color:var(--muted);margin-left:.2em}
 
-/* график */
+/* chart */
 #chart-wrap{width:min(88vw,680px)}
 canvas#chart{width:100%;height:80px;display:block}
 #chart-labels{
@@ -116,7 +116,7 @@ canvas#chart{width:100%;height:80px;display:block}
   font-size:.6rem;color:var(--muted);margin-top:.25rem
 }
 
-/* футер */
+/* footer */
 footer{
   border-top:1px solid var(--border);padding:.8rem 1.4rem;
   display:flex;align-items:center;gap:2rem;flex-wrap:wrap
@@ -151,29 +151,29 @@ input[type=range]::-webkit-slider-thumb{
 <body>
 
 <header>
-  <div><span id="conn-dot"></span><span id="conn-text">подключение…</span></div>
+  <div><span id="conn-dot"></span><span id="conn-text">connecting…</span></div>
   <div>room monitor · 9000</div>
 </header>
 
 <main>
-  <div id="lamp" title="клик = фуллскрин"></div>
+  <div id="lamp" title="click = fullscreen"></div>
   <div id="status-label">—</div>
-  <div id="db-display">—<span>дБ</span></div>
+  <div id="db-display">—<span>dB</span></div>
   <div id="chart-wrap">
     <canvas id="chart" width="680" height="80"></canvas>
-    <div id="chart-labels"><span>60 с назад</span><span>сейчас</span></div>
+    <div id="chart-labels"><span>60 sec ago</span><span>now</span></div>
   </div>
 </main>
 
 <footer>
   <div class="ctrl">
-    <label>Порог срабатывания (громче → чувствительнее)</label>
+    <label>Trigger threshold (lower → more sensitive)</label>
     <div class="ctrl-row">
       <input type="range" id="thr-slider" min="40" max="90" step="1" value="65"/>
-      <span id="thr-value">65 дБ</span>
+      <span id="thr-value">65 dB</span>
     </div>
   </div>
-  <button id="btn-fs">⛶ Фуллскрин</button>
+  <button id="btn-fs">⛶ Fullscreen</button>
 </footer>
 
 <canvas id="ka" width="1" height="1"></canvas>
@@ -188,9 +188,9 @@ input[type=range]::-webkit-slider-thumb{
   try{const s=c.captureStream(1),v=document.createElement('video');v.srcObject=s;v.muted=true;v.loop=true;v.play().catch(()=>{})}catch(e){}
 })();
 
-/* ── График ──
-   Реальные дБ с микрофона лежат примерно в диапазоне 30–80.
-   Рисуем шкалу от 30 до 90 дБ.
+/* ── Chart ──
+   Real microphone dB values are usually in the 30–80 range.
+   Draw the scale from 30 to 90 dB.
 */
 const HISTORY=120, DB_MIN=30, DB_MAX=90;
 const dbHistory=new Array(HISTORY).fill(DB_MIN);
@@ -206,17 +206,17 @@ function drawChart(alertNow){
   const W=chartCanvas.width, H=chartCanvas.height;
   cctx.clearRect(0,0,W,H);
 
-  // сетка
+  // grid
   cctx.lineWidth=1;
   [40,50,60,70,80].forEach(db=>{
     const y=dbToY(db,H);
     cctx.strokeStyle='#1e1e1e';
     cctx.beginPath();cctx.moveTo(0,y);cctx.lineTo(W,y);cctx.stroke();
     cctx.fillStyle='#383838';cctx.font='9px monospace';
-    cctx.fillText(db+' дБ',4,y-3);
+    cctx.fillText(db+' dB',4,y-3);
   });
 
-  // линия звука
+  // sound line
   cctx.beginPath();
   dbHistory.forEach((db,i)=>{
     const x=i/(HISTORY-1)*W;
@@ -226,17 +226,17 @@ function drawChart(alertNow){
   cctx.strokeStyle=alertNow?'#ff1744':'#00e676';
   cctx.lineWidth=1.5;cctx.stroke();
 
-  // линия порога
+  // threshold line
   const ty=dbToY(currentThresholdDb,H);
   cctx.setLineDash([5,4]);
   cctx.strokeStyle='#ff6d00';cctx.lineWidth=1.5;
   cctx.beginPath();cctx.moveTo(0,ty);cctx.lineTo(W,ty);cctx.stroke();
   cctx.setLineDash([]);
   cctx.fillStyle='#ff6d00';cctx.font='9px monospace';
-  cctx.fillText('порог '+currentThresholdDb+' дБ', 4, ty-4);
+  cctx.fillText('threshold '+currentThresholdDb+' dB', 4, ty-4);
 }
 
-/* ── Слайдер ── */
+/* ── Slider ── */
 const slider=document.getElementById('thr-slider');
 const thrValue=document.getElementById('thr-value');
 
@@ -246,7 +246,7 @@ function updateTrack(){
   const pct=((slider.value-slider.min)/(slider.max-slider.min)*100).toFixed(1)+'%';
   slider.style.setProperty('--pct',pct);
   currentThresholdDb=parseInt(slider.value);
-  thrValue.textContent=currentThresholdDb+' дБ';
+  thrValue.textContent=currentThresholdDb+' dB';
 }
 
 let debounce=null;
@@ -259,7 +259,7 @@ slider.addEventListener('input',()=>{
   },200);
 });
 updateTrack();
-// отправить начальное значение
+// send initial value
 fetch('/threshold',{method:'POST',headers:{'Content-Type':'application/json'},
   body:JSON.stringify({value:rmsFromDb(currentThresholdDb)})}).catch(()=>{});
 
@@ -278,23 +278,23 @@ async function poll(){
 
     lamp.classList.toggle('alert',isAlert);
     label.classList.toggle('alert',isAlert);
-    label.textContent=isAlert?'ШУМ':'ТИШИНА';
+    label.textContent=isAlert?'NOISE':'QUIET';
 
     const db=typeof d.db==='number'?d.db:DB_MIN;
-    dbDisp.innerHTML=`${db.toFixed(1)}<span>дБ</span>`;
+    dbDisp.innerHTML=`${db.toFixed(1)}<span>dB</span>`;
 
     dbHistory.push(db);
     if(dbHistory.length>HISTORY)dbHistory.shift();
     drawChart(isAlert);
 
-    connDot.className='ok';connTxt.textContent='подключено';
+    connDot.className='ok';connTxt.textContent='connected';
   }catch(e){
-    connDot.className='err';connTxt.textContent='нет связи';
+    connDot.className='err';connTxt.textContent='no connection';
   }
 }
 setInterval(poll,500);poll();
 
-/* ── Фуллскрин ── */
+/* ── Fullscreen ── */
 [document.getElementById('btn-fs'),lamp].forEach(el=>{
   el.addEventListener('click',()=>{
     if(!document.fullscreenElement)document.documentElement.requestFullscreen().catch(()=>{});
@@ -305,7 +305,7 @@ setInterval(poll,500);poll();
 </body>
 </html>"""
 
-# ─── Flask ────────────────────────────────────────────────────────────────────
+# ─── Flask ───────────────────────────────────────────────────────────────────
 app = Flask(__name__)
 CORS(app)
 
@@ -329,7 +329,7 @@ def set_threshold():
         return jsonify({"ok": True, "threshold": config["threshold"]})
     return jsonify({"ok": False, "error": "value must be 10–10000"}), 400
 
-# ─── Запуск ───────────────────────────────────────────────────────────────────
+# ─── Startup ─────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     t = threading.Thread(target=audio_thread, daemon=True)
     t.start()
